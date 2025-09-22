@@ -13,4 +13,30 @@ dependencies = [
     "python-multipart==0.0.20",
     "python-dotenv==1.1.1",
     "pytest>=8.4.2",
+    "httpx>=0.25.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--strict-config",
+    "--disable-warnings"
+]
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for component interactions",
+    "api: API endpoint tests",
+    "e2e: End-to-end tests for full system",
+    "slow: Tests that take longer to run"
+]
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore:.*resource_tracker.*:UserWarning"
 ]

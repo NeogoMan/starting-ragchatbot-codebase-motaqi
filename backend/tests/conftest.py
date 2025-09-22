@@ -3,11 +3,13 @@ import tempfile
 import shutil
 import os
 from typing import Generator, List
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from fastapi.testclient import TestClient
+from fastapi import FastAPI
 from models import Course, Lesson, CourseChunk
 from vector_store import VectorStore
 from search_tools import CourseSearchTool, CourseOutlineTool, ToolManager
@@ -169,3 +171,159 @@ def ai_generator_with_mock(mock_anthropic_client):
         generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
         generator.client = mock_anthropic_client
         return generator
+
+
+# API Testing Fixtures
+
+@pytest.fixture
+def test_app():
+    """Create a test FastAPI app without static file mounting"""
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.middleware.trustedhost import TrustedHostMiddleware
+    from pydantic import BaseModel
+    from typing import List, Optional, Dict, Any
+
+    # Create test app
+    app = FastAPI(title="Test Course Materials RAG System")
+
+    # Add middleware
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+
+    # Define models inline to avoid import issues
+    class QueryRequest(BaseModel):
+        query: str
+        session_id: Optional[str] = None
+
+    class QueryResponse(BaseModel):
+        answer: str
+        sources: List[Dict[str, Any]]
+        session_id: str
+
+    class CourseStats(BaseModel):
+        total_courses: int
+        course_titles: List[str]
+
+    class NewSessionRequest(BaseModel):
+        old_session_id: Optional[str] = None
+
+    class NewSessionResponse(BaseModel):
+        session_id: str
+
+    return app, QueryRequest, QueryResponse, CourseStats, NewSessionRequest, NewSessionResponse
+
+
+@pytest.fixture
+def mock_rag_system():
+    """Mock RAG system for API testing"""
+    mock_rag = Mock()
+    mock_rag.query.return_value = (
+        "This is a test answer about machine learning.",
+        [{"text": "Machine learning is a subset of AI", "url": "https://example.com/ml"}]
+    )
+    mock_rag.get_course_analytics.return_value = {
+        "total_courses": 2,
+        "course_titles": ["Introduction to ML", "Advanced Python"]
+    }
+    mock_rag.session_manager.create_session.return_value = "test-session-123"
+    mock_rag.session_manager.clear_session.return_value = None
+    return mock_rag
+
+
+@pytest.fixture
+def test_client_with_mocked_rag(test_app, mock_rag_system):
+    """Test client with mocked RAG system"""
+    from fastapi import HTTPException
+
+    app, QueryRequest, QueryResponse, CourseStats, NewSessionRequest, NewSessionResponse = test_app
+
+    # Define endpoints with mock RAG system
+    @app.post("/api/query", response_model=QueryResponse)
+    async def query_documents(request: QueryRequest):
+        try:
+            session_id = request.session_id
+            if not session_id:
+                session_id = mock_rag_system.session_manager.create_session()
+
+            answer, sources = mock_rag_system.query(request.query, session_id)
+
+            formatted_sources = []
+            for source in sources:
+                if isinstance(source, dict):
+                    formatted_sources.append(source)
+                else:
+                    formatted_sources.append({"text": str(source)})
+
+            return QueryResponse(
+                answer=answer,
+                sources=formatted_sources,
+                session_id=session_id
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/courses", response_model=CourseStats)
+    async def get_course_stats():
+        try:
+            analytics = mock_rag_system.get_course_analytics()
+            return CourseStats(
+                total_courses=analytics["total_courses"],
+                course_titles=analytics["course_titles"]
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/new-session", response_model=NewSessionResponse)
+    async def create_new_session(request: NewSessionRequest):
+        try:
+            if request.old_session_id:
+                mock_rag_system.session_manager.clear_session(request.old_session_id)
+
+            new_session_id = mock_rag_system.session_manager.create_session()
+            return NewSessionResponse(session_id=new_session_id)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/")
+    async def read_root():
+        return {"message": "RAG System API"}
+
+    return TestClient(app)
+
+
+@pytest.fixture
+def api_test_data():
+    """Common test data for API tests"""
+    return {
+        "valid_query": {
+            "query": "What is machine learning?",
+            "session_id": "test-session-123"
+        },
+        "query_without_session": {
+            "query": "Explain supervised learning"
+        },
+        "invalid_query": {
+            "query": "",  # Empty query
+            "session_id": "test-session-123"
+        },
+        "new_session_request": {
+            "old_session_id": "old-session-456"
+        },
+        "expected_course_stats": {
+            "total_courses": 2,
+            "course_titles": ["Introduction to ML", "Advanced Python"]
+        },
+        "expected_query_response": {
+            "answer": "This is a test answer about machine learning.",
+            "sources": [{"text": "Machine learning is a subset of AI", "url": "https://example.com/ml"}],
+            "session_id": "test-session-123"
+        }
+    }
