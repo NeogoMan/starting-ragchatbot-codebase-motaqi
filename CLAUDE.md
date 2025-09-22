@@ -13,6 +13,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Copy `.env.example` to `.env` and add your `ANTHROPIC_API_KEY`
 - The application requires Python 3.13+ and uv package manager
 
+### Code Quality Tools
+- Format code: `./scripts/format.sh` (runs black and isort)
+- Lint code: `./scripts/lint.sh` (runs flake8 and mypy)
+- Complete quality check: `./scripts/quality-check.sh` (formats, lints, and tests)
+- Individual commands:
+  - `uv run black .` - Format code with black
+  - `uv run isort .` - Sort imports
+  - `uv run flake8 .` - Lint with flake8
+  - `uv run mypy .` - Type check with mypy
+  - `uv run pytest` - Run tests
+
 ## Architecture Overview
 
 This is a Retrieval-Augmented Generation (RAG) system for course materials with the following key components:

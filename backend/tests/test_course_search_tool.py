@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+from models import Course, CourseChunk, Lesson
 from search_tools import CourseSearchTool
-from vector_store import VectorStore, SearchResults
-from models import Course, Lesson, CourseChunk
+from vector_store import SearchResults, VectorStore
 
 
 class TestCourseSearchTool:
@@ -53,9 +54,7 @@ class TestCourseSearchTool:
     def test_execute_with_both_filters(self, course_search_tool):
         """Test execution with both course and lesson filters"""
         result = course_search_tool.execute(
-            "supervised learning",
-            course_name="Machine Learning",
-            lesson_number=2
+            "supervised learning", course_name="Machine Learning", lesson_number=2
         )
 
         assert isinstance(result, str)
@@ -73,8 +72,7 @@ class TestCourseSearchTool:
     def test_execute_no_results_with_filters(self, course_search_tool):
         """Test execution with filters when no results are found"""
         result = course_search_tool.execute(
-            "machine learning",
-            course_name="Nonexistent Course"
+            "machine learning", course_name="Nonexistent Course"
         )
 
         assert isinstance(result, str)
@@ -105,7 +103,7 @@ class TestCourseSearchTool:
         tool = CourseSearchTool(empty_vector_store)
 
         # Mock the vector store to return an error
-        with patch.object(empty_vector_store, 'search') as mock_search:
+        with patch.object(empty_vector_store, "search") as mock_search:
             mock_search.return_value = SearchResults.empty("Database connection failed")
 
             result = tool.execute("test query")
@@ -121,15 +119,20 @@ class TestCourseSearchTool:
         assert "[Introduction to Machine Learning" in result
 
         # Should have lesson information if applicable
-        lines = result.split('\n')
+        lines = result.split("\n")
         assert len(lines) > 1  # Should have multiple lines (header + content)
 
-    @pytest.mark.parametrize("query,expected_in_result", [
-        ("machine learning", "machine learning"),
-        ("supervised", "supervised"),
-        ("artificial intelligence", "artificial"),
-    ])
-    def test_execute_various_queries(self, course_search_tool, query, expected_in_result):
+    @pytest.mark.parametrize(
+        "query,expected_in_result",
+        [
+            ("machine learning", "machine learning"),
+            ("supervised", "supervised"),
+            ("artificial intelligence", "artificial"),
+        ],
+    )
+    def test_execute_various_queries(
+        self, course_search_tool, query, expected_in_result
+    ):
         """Test execution with various query types"""
         result = course_search_tool.execute(query)
 
@@ -190,8 +193,8 @@ class TestCourseSearchTool:
     def test_tool_interface_compliance(self, course_search_tool):
         """Test that CourseSearchTool properly implements Tool interface"""
         # Should have required methods
-        assert hasattr(course_search_tool, 'get_tool_definition')
-        assert hasattr(course_search_tool, 'execute')
+        assert hasattr(course_search_tool, "get_tool_definition")
+        assert hasattr(course_search_tool, "execute")
 
         # Methods should be callable
         assert callable(course_search_tool.get_tool_definition)

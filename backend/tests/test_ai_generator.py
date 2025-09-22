@@ -1,8 +1,9 @@
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from ai_generator import AIGenerator
-from search_tools import ToolManager, CourseSearchTool
+from unittest.mock import MagicMock, Mock, patch
+
 import anthropic
+import pytest
+from ai_generator import AIGenerator
+from search_tools import CourseSearchTool, ToolManager
 
 
 class TestAIGenerator:
@@ -30,8 +31,7 @@ class TestAIGenerator:
         """Test generating response with conversation history"""
         history = "Previous conversation about AI"
         response = ai_generator_with_mock.generate_response(
-            "What is machine learning?",
-            conversation_history=history
+            "What is machine learning?", conversation_history=history
         )
 
         assert isinstance(response, str)
@@ -39,7 +39,9 @@ class TestAIGenerator:
         call_args = ai_generator_with_mock.client.messages.create.call_args
         assert "Previous conversation" in call_args[1]["system"]
 
-    def test_generate_response_with_tools_no_tool_use(self, ai_generator_with_mock, tool_manager):
+    def test_generate_response_with_tools_no_tool_use(
+        self, ai_generator_with_mock, tool_manager
+    ):
         """Test generating response with tools available but not used"""
         # Mock response that doesn't use tools
         mock_response = Mock()
@@ -50,13 +52,15 @@ class TestAIGenerator:
         response = ai_generator_with_mock.generate_response(
             "What is the weather?",
             tools=tool_manager.get_tool_definitions(),
-            tool_manager=tool_manager
+            tool_manager=tool_manager,
         )
 
         assert isinstance(response, str)
         assert response == "This is a general response"
 
-    def test_generate_response_with_tool_use(self, ai_generator_with_mock, tool_manager):
+    def test_generate_response_with_tool_use(
+        self, ai_generator_with_mock, tool_manager
+    ):
         """Test generating response with tool use"""
         # Mock tool use response
         mock_tool_block = Mock()
@@ -75,13 +79,13 @@ class TestAIGenerator:
 
         ai_generator_with_mock.client.messages.create.side_effect = [
             mock_initial_response,
-            mock_final_response
+            mock_final_response,
         ]
 
         response = ai_generator_with_mock.generate_response(
             "What is machine learning?",
             tools=tool_manager.get_tool_definitions(),
-            tool_manager=tool_manager
+            tool_manager=tool_manager,
         )
 
         assert isinstance(response, str)
@@ -89,7 +93,9 @@ class TestAIGenerator:
         # Verify two API calls were made (initial + final)
         assert ai_generator_with_mock.client.messages.create.call_count == 2
 
-    def test_handle_sequential_tool_execution_single_round(self, ai_generator_with_mock, tool_manager):
+    def test_handle_sequential_tool_execution_single_round(
+        self, ai_generator_with_mock, tool_manager
+    ):
         """Test _handle_sequential_tool_execution with single tool call round"""
         # Mock tool use response
         mock_tool_block = Mock()
@@ -111,18 +117,18 @@ class TestAIGenerator:
         base_params = {
             "messages": [{"role": "user", "content": "test query"}],
             "system": "test system prompt",
-            "tools": tool_manager.get_tool_definitions()
+            "tools": tool_manager.get_tool_definitions(),
         }
 
         result = ai_generator_with_mock._handle_sequential_tool_execution(
-            mock_initial_response,
-            base_params,
-            tool_manager
+            mock_initial_response, base_params, tool_manager
         )
 
         assert result == "Final response based on search"
 
-    def test_handle_sequential_tool_execution_two_rounds(self, ai_generator_with_mock, tool_manager):
+    def test_handle_sequential_tool_execution_two_rounds(
+        self, ai_generator_with_mock, tool_manager
+    ):
         """Test _handle_sequential_tool_execution with two sequential tool call rounds"""
         # Mock Round 1: Course outline tool
         mock_tool_block1 = Mock()
@@ -148,25 +154,34 @@ class TestAIGenerator:
 
         # Mock final response
         mock_final_response = Mock()
-        mock_final_response.content = [Mock(text="Based on the MCP course outline and search results, servers configuration...")]
+        mock_final_response.content = [
+            Mock(
+                text="Based on the MCP course outline and search results, servers configuration..."
+            )
+        ]
         mock_final_response.stop_reason = "end_turn"
 
         # Set up sequence of API calls
         ai_generator_with_mock.client.messages.create.side_effect = [
             mock_round2_response,  # Response to round 1 tool results
-            mock_final_response    # Response to round 2 tool results
+            mock_final_response,  # Response to round 2 tool results
         ]
 
         base_params = {
-            "messages": [{"role": "user", "content": "Find content about servers configuration in MCP course"}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Find content about servers configuration in MCP course",
+                }
+            ],
             "system": "test system prompt",
-            "tools": tool_manager.get_tool_definitions()
+            "tools": tool_manager.get_tool_definitions(),
         }
 
         result = ai_generator_with_mock._handle_sequential_tool_execution(
             mock_round1_response,  # Initial response with first tool call
             base_params,
-            tool_manager
+            tool_manager,
         )
 
         assert "servers configuration" in result
@@ -187,7 +202,9 @@ class TestAIGenerator:
 
         # Mock tool manager that returns error
         mock_tool_manager = Mock()
-        mock_tool_manager.execute_tool.return_value = "Tool 'nonexistent_tool' not found"
+        mock_tool_manager.execute_tool.return_value = (
+            "Tool 'nonexistent_tool' not found"
+        )
 
         # Mock final response
         mock_final_response = Mock()
@@ -196,18 +213,16 @@ class TestAIGenerator:
 
         base_params = {
             "messages": [{"role": "user", "content": "test query"}],
-            "system": "test system prompt"
+            "system": "test system prompt",
         }
 
         result = ai_generator_with_mock._handle_tool_execution(
-            mock_initial_response,
-            base_params,
-            mock_tool_manager
+            mock_initial_response, base_params, mock_tool_manager
         )
 
         assert result == "Error handled response"
 
-    @patch('ai_generator.anthropic.Anthropic')
+    @patch("ai_generator.anthropic.Anthropic")
     def test_api_key_configuration(self, mock_anthropic):
         """Test that API key is properly passed to Anthropic client"""
         api_key = "test-api-key-123"
@@ -215,11 +230,13 @@ class TestAIGenerator:
 
         mock_anthropic.assert_called_once_with(api_key=api_key)
 
-    @patch('ai_generator.anthropic.Anthropic')
+    @patch("ai_generator.anthropic.Anthropic")
     def test_api_error_handling(self, mock_anthropic):
         """Test handling of Anthropic API errors"""
         mock_client = Mock()
-        mock_client.messages.create.side_effect = anthropic.APIError("Rate limit exceeded")
+        mock_client.messages.create.side_effect = anthropic.APIError(
+            "Rate limit exceeded"
+        )
         mock_anthropic.return_value = mock_client
 
         generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
@@ -243,9 +260,7 @@ class TestAIGenerator:
         """Test that messages are properly structured for API"""
         query = "What is machine learning?"
         ai_generator_with_mock.generate_response(
-            query,
-            tools=tool_manager.get_tool_definitions(),
-            tool_manager=tool_manager
+            query, tools=tool_manager.get_tool_definitions(), tool_manager=tool_manager
         )
 
         call_args = ai_generator_with_mock.client.messages.create.call_args
@@ -260,7 +275,7 @@ class TestAIGenerator:
         ai_generator_with_mock.generate_response(
             "test query",
             tools=tool_manager.get_tool_definitions(),
-            tool_manager=tool_manager
+            tool_manager=tool_manager,
         )
 
         call_args = ai_generator_with_mock.client.messages.create.call_args
@@ -279,7 +294,7 @@ class TestAIGenerator:
         ai_generator_with_mock.generate_response(
             "test query",
             tools=tool_manager.get_tool_definitions(),
-            tool_manager=tool_manager
+            tool_manager=tool_manager,
         )
 
         call_args = ai_generator_with_mock.client.messages.create.call_args
@@ -332,18 +347,16 @@ class TestAIGenerator:
 
         ai_generator_with_mock.client.messages.create.side_effect = [
             mock_initial_response,
-            capture_final_call
+            capture_final_call,
         ]
 
         base_params = {
             "messages": [{"role": "user", "content": "test query"}],
-            "system": "test system prompt"
+            "system": "test system prompt",
         }
 
         ai_generator_with_mock._handle_tool_execution(
-            mock_initial_response,
-            base_params,
-            tool_manager
+            mock_initial_response, base_params, tool_manager
         )
 
         # Verify that the second call included tool results
@@ -362,7 +375,9 @@ class TestAIGenerator:
         assert tool_result_content[0]["type"] == "tool_result"
         assert tool_result_content[0]["tool_use_id"] == "tool_123"
 
-    def test_sequential_tool_execution_max_rounds_limit(self, ai_generator_with_mock, tool_manager):
+    def test_sequential_tool_execution_max_rounds_limit(
+        self, ai_generator_with_mock, tool_manager
+    ):
         """Test that sequential tool execution respects 2-round maximum"""
         # Mock tool responses for 3 potential rounds (should stop at 2)
         mock_tool_block = Mock()
@@ -382,27 +397,27 @@ class TestAIGenerator:
 
         # Set up API call sequence
         ai_generator_with_mock.client.messages.create.side_effect = [
-            mock_tool_response,   # Round 2 wants tools
-            mock_final_response   # Round 2 final response (no tools available)
+            mock_tool_response,  # Round 2 wants tools
+            mock_final_response,  # Round 2 final response (no tools available)
         ]
 
         base_params = {
             "messages": [{"role": "user", "content": "test query"}],
             "system": "test system prompt",
-            "tools": tool_manager.get_tool_definitions()
+            "tools": tool_manager.get_tool_definitions(),
         }
 
         result = ai_generator_with_mock._handle_sequential_tool_execution(
-            mock_tool_response,  # Initial round 1 response
-            base_params,
-            tool_manager
+            mock_tool_response, base_params, tool_manager  # Initial round 1 response
         )
 
         assert result == "Final answer after 2 rounds"
         # Should make exactly 2 additional API calls
         assert ai_generator_with_mock.client.messages.create.call_count == 2
 
-    def test_sequential_tool_execution_early_termination(self, ai_generator_with_mock, tool_manager):
+    def test_sequential_tool_execution_early_termination(
+        self, ai_generator_with_mock, tool_manager
+    ):
         """Test early termination when Claude doesn't use tools in round 2"""
         # Mock tool use response for round 1
         mock_tool_block = Mock()
@@ -417,7 +432,9 @@ class TestAIGenerator:
 
         # Mock response for round 2 - Claude chooses not to use tools
         mock_final_response = Mock()
-        mock_final_response.content = [Mock(text="I have sufficient information from the first search")]
+        mock_final_response.content = [
+            Mock(text="I have sufficient information from the first search")
+        ]
         mock_final_response.stop_reason = "end_turn"
 
         ai_generator_with_mock.client.messages.create.return_value = mock_final_response
@@ -425,20 +442,20 @@ class TestAIGenerator:
         base_params = {
             "messages": [{"role": "user", "content": "test query"}],
             "system": "test system prompt",
-            "tools": tool_manager.get_tool_definitions()
+            "tools": tool_manager.get_tool_definitions(),
         }
 
         result = ai_generator_with_mock._handle_sequential_tool_execution(
-            mock_round1_response,
-            base_params,
-            tool_manager
+            mock_round1_response, base_params, tool_manager
         )
 
         assert "sufficient information" in result
         # Should make exactly 1 additional API call (round 2 with no tool use)
         assert ai_generator_with_mock.client.messages.create.call_count == 1
 
-    def test_sequential_tool_execution_error_in_round_2(self, ai_generator_with_mock, tool_manager):
+    def test_sequential_tool_execution_error_in_round_2(
+        self, ai_generator_with_mock, tool_manager
+    ):
         """Test error handling when round 2 API call fails"""
         # Mock tool use response for round 1
         mock_tool_block = Mock()
@@ -452,33 +469,39 @@ class TestAIGenerator:
         mock_round1_response.stop_reason = "tool_use"
 
         # Mock API error in round 2
-        ai_generator_with_mock.client.messages.create.side_effect = Exception("Rate limit exceeded")
+        ai_generator_with_mock.client.messages.create.side_effect = Exception(
+            "Rate limit exceeded"
+        )
 
         base_params = {
             "messages": [{"role": "user", "content": "test query"}],
             "system": "test system prompt",
-            "tools": tool_manager.get_tool_definitions()
+            "tools": tool_manager.get_tool_definitions(),
         }
 
         result = ai_generator_with_mock._handle_sequential_tool_execution(
-            mock_round1_response,
-            base_params,
-            tool_manager
+            mock_round1_response, base_params, tool_manager
         )
 
-        assert "interrupted due to an error" in result or "Rate limit exceeded" in result
+        assert (
+            "interrupted due to an error" in result or "Rate limit exceeded" in result
+        )
 
     def test_build_round_system_prompt(self, ai_generator_with_mock):
         """Test round-specific system prompt building"""
         base_system = "Base system prompt"
 
         # Test round 1 prompt
-        round1_prompt = ai_generator_with_mock._build_round_system_prompt(base_system, 1, 2)
+        round1_prompt = ai_generator_with_mock._build_round_system_prompt(
+            base_system, 1, 2
+        )
         assert "Round 1/2" in round1_prompt
         assert "first opportunity" in round1_prompt
 
         # Test round 2 prompt
-        round2_prompt = ai_generator_with_mock._build_round_system_prompt(base_system, 2, 2)
+        round2_prompt = ai_generator_with_mock._build_round_system_prompt(
+            base_system, 2, 2
+        )
         assert "Round 2/2" in round2_prompt
         assert "final tool call opportunity" in round2_prompt
 
@@ -508,22 +531,23 @@ class TestAIGenerator:
         base_params = {
             "messages": [{"role": "user", "content": "test query"}],
             "system": "test system prompt",
-            "tools": []
+            "tools": [],
         }
 
         result = ai_generator_with_mock._handle_sequential_tool_execution(
-            mock_initial_response,
-            base_params,
-            mock_tool_manager
+            mock_initial_response, base_params, mock_tool_manager
         )
 
         assert result == "Handled error gracefully"
 
-    @pytest.mark.parametrize("model_name", [
-        "claude-sonnet-4-20250514",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-opus-20240229"
-    ])
+    @pytest.mark.parametrize(
+        "model_name",
+        [
+            "claude-sonnet-4-20250514",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229",
+        ],
+    )
     def test_different_models(self, model_name):
         """Test AIGenerator works with different Claude models"""
         generator = AIGenerator("test-key", model_name)

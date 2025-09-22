@@ -1,12 +1,13 @@
-import pytest
 import os
 from unittest.mock import patch
-import chromadb
-from config import config
-from vector_store import VectorStore
-from ai_generator import AIGenerator
-from rag_system import RAGSystem
+
 import anthropic
+import chromadb
+import pytest
+from ai_generator import AIGenerator
+from config import config
+from rag_system import RAGSystem
+from vector_store import VectorStore
 
 
 class TestSystemHealth:
@@ -22,13 +23,17 @@ class TestSystemHealth:
 
         # Check if it looks like a valid API key format
         if not api_key.startswith("test-"):  # Allow test keys in testing
-            assert api_key.startswith("sk-"), f"API key should start with 'sk-', got: {api_key[:10]}..."
+            assert api_key.startswith(
+                "sk-"
+            ), f"API key should start with 'sk-', got: {api_key[:10]}..."
 
     def test_chroma_database_exists(self):
         """Test that ChromaDB database exists and is accessible"""
         chroma_path = config.CHROMA_PATH
 
-        assert os.path.exists(chroma_path), f"ChromaDB path does not exist: {chroma_path}"
+        assert os.path.exists(
+            chroma_path
+        ), f"ChromaDB path does not exist: {chroma_path}"
 
         # Try to connect to the database
         try:
@@ -44,24 +49,34 @@ class TestSystemHealth:
             client = chromadb.PersistentClient(path=config.CHROMA_PATH)
             collection_names = [col.name for col in client.list_collections()]
 
-            assert "course_catalog" in collection_names, "course_catalog collection missing"
-            assert "course_content" in collection_names, "course_content collection missing"
+            assert (
+                "course_catalog" in collection_names
+            ), "course_catalog collection missing"
+            assert (
+                "course_content" in collection_names
+            ), "course_content collection missing"
         except Exception as e:
             pytest.fail(f"Failed to check collections: {e}")
 
     def test_chroma_database_has_data(self):
         """Test that ChromaDB contains course data"""
         try:
-            store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
+            store = VectorStore(
+                config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS
+            )
 
             # Check course catalog
             course_count = store.get_course_count()
-            assert course_count > 0, f"No courses found in database. Expected > 0, got {course_count}"
+            assert (
+                course_count > 0
+            ), f"No courses found in database. Expected > 0, got {course_count}"
 
             # Check course titles
             course_titles = store.get_existing_course_titles()
             assert len(course_titles) > 0, "No course titles found"
-            assert all(isinstance(title, str) for title in course_titles), "Invalid course title format"
+            assert all(
+                isinstance(title, str) for title in course_titles
+            ), "Invalid course title format"
 
             print(f"✓ Found {course_count} courses: {course_titles}")
 
@@ -71,7 +86,9 @@ class TestSystemHealth:
     def test_course_content_searchable(self):
         """Test that course content is searchable"""
         try:
-            store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
+            store = VectorStore(
+                config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS
+            )
 
             # Try a simple search
             results = store.search("learning")
@@ -80,11 +97,15 @@ class TestSystemHealth:
                 pytest.fail(f"Search returned error: {results.error}")
 
             if results.is_empty():
-                pytest.fail("Search returned no results - database may be empty or corrupted")
+                pytest.fail(
+                    "Search returned no results - database may be empty or corrupted"
+                )
 
             assert len(results.documents) > 0, "No documents in search results"
             assert len(results.metadata) > 0, "No metadata in search results"
-            assert len(results.documents) == len(results.metadata), "Documents and metadata count mismatch"
+            assert len(results.documents) == len(
+                results.metadata
+            ), "Documents and metadata count mismatch"
 
             print(f"✓ Search successful, found {len(results.documents)} results")
 
@@ -106,7 +127,9 @@ class TestSystemHealth:
             assert len(embedding) > 0, "Empty embedding generated"
             assert len(embedding[0]) > 0, "Invalid embedding dimension"
 
-            print(f"✓ Embedding model '{config.EMBEDDING_MODEL}' working, dimension: {len(embedding[0])}")
+            print(
+                f"✓ Embedding model '{config.EMBEDDING_MODEL}' working, dimension: {len(embedding[0])}"
+            )
 
         except Exception as e:
             pytest.fail(f"Embedding model failed: {e}")
@@ -128,11 +151,15 @@ class TestSystemHealth:
         """Test that the documents folder exists"""
         docs_path = "../docs"
 
-        assert os.path.exists(docs_path), f"Documents folder does not exist: {docs_path}"
+        assert os.path.exists(
+            docs_path
+        ), f"Documents folder does not exist: {docs_path}"
 
         # Check for course files
         files = os.listdir(docs_path)
-        course_files = [f for f in files if f.lower().endswith(('.txt', '.pdf', '.docx'))]
+        course_files = [
+            f for f in files if f.lower().endswith((".txt", ".pdf", ".docx"))
+        ]
 
         assert len(course_files) > 0, f"No course files found in {docs_path}"
 
@@ -146,16 +173,26 @@ class TestSystemHealth:
             assert rag_system.vector_store is not None, "VectorStore not initialized"
             assert rag_system.ai_generator is not None, "AIGenerator not initialized"
             assert rag_system.tool_manager is not None, "ToolManager not initialized"
-            assert rag_system.search_tool is not None, "CourseSearchTool not initialized"
-            assert rag_system.outline_tool is not None, "CourseOutlineTool not initialized"
+            assert (
+                rag_system.search_tool is not None
+            ), "CourseSearchTool not initialized"
+            assert (
+                rag_system.outline_tool is not None
+            ), "CourseOutlineTool not initialized"
 
             # Test tool registration
             tool_definitions = rag_system.tool_manager.get_tool_definitions()
-            assert len(tool_definitions) == 2, f"Expected 2 tools, got {len(tool_definitions)}"
+            assert (
+                len(tool_definitions) == 2
+            ), f"Expected 2 tools, got {len(tool_definitions)}"
 
-            tool_names = [tool['name'] for tool in tool_definitions]
-            assert 'search_course_content' in tool_names, "search_course_content tool not registered"
-            assert 'get_course_outline' in tool_names, "get_course_outline tool not registered"
+            tool_names = [tool["name"] for tool in tool_definitions]
+            assert (
+                "search_course_content" in tool_names
+            ), "search_course_content tool not registered"
+            assert (
+                "get_course_outline" in tool_names
+            ), "get_course_outline tool not registered"
 
             print("✓ RAGSystem initialized successfully")
 
@@ -165,7 +202,9 @@ class TestSystemHealth:
     def test_course_search_tool_functionality(self):
         """Test that CourseSearchTool works with actual data"""
         try:
-            store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
+            store = VectorStore(
+                config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS
+            )
             from search_tools import CourseSearchTool
 
             search_tool = CourseSearchTool(store)
@@ -180,7 +219,9 @@ class TestSystemHealth:
                 pytest.fail("Search tool found no content - database may be empty")
 
             # Should contain course context
-            assert "[" in result and "]" in result, "Result should contain course context headers"
+            assert (
+                "[" in result and "]" in result
+            ), "Result should contain course context headers"
 
             print("✓ CourseSearchTool working with actual data")
 
@@ -190,7 +231,9 @@ class TestSystemHealth:
     def test_course_outline_tool_functionality(self):
         """Test that CourseOutlineTool works with actual data"""
         try:
-            store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
+            store = VectorStore(
+                config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS
+            )
             from search_tools import CourseOutlineTool
 
             outline_tool = CourseOutlineTool(store)
@@ -251,7 +294,9 @@ class TestSystemHealth:
         assert config.CHUNK_SIZE > 0, "CHUNK_SIZE must be positive"
         assert config.CHUNK_SIZE <= 2000, "CHUNK_SIZE seems too large"
         assert config.CHUNK_OVERLAP >= 0, "CHUNK_OVERLAP must be non-negative"
-        assert config.CHUNK_OVERLAP < config.CHUNK_SIZE, "CHUNK_OVERLAP must be less than CHUNK_SIZE"
+        assert (
+            config.CHUNK_OVERLAP < config.CHUNK_SIZE
+        ), "CHUNK_OVERLAP must be less than CHUNK_SIZE"
 
         # Check result limits
         assert config.MAX_RESULTS > 0, "MAX_RESULTS must be positive"
@@ -262,7 +307,9 @@ class TestSystemHealth:
         assert config.MAX_HISTORY <= 10, "MAX_HISTORY seems too large"
 
         # Check model names
-        assert config.ANTHROPIC_MODEL.startswith("claude"), "ANTHROPIC_MODEL should be a Claude model"
+        assert config.ANTHROPIC_MODEL.startswith(
+            "claude"
+        ), "ANTHROPIC_MODEL should be a Claude model"
         assert config.EMBEDDING_MODEL != "", "EMBEDDING_MODEL should not be empty"
 
         print(f"✓ Configuration values are reasonable")
@@ -270,14 +317,16 @@ class TestSystemHealth:
     def test_actual_search_quality(self):
         """Test that search returns relevant results for common queries"""
         try:
-            store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
+            store = VectorStore(
+                config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS
+            )
 
             test_queries = [
                 "machine learning",
                 "artificial intelligence",
                 "neural networks",
                 "data science",
-                "programming"
+                "programming",
             ]
 
             successful_queries = 0
@@ -290,25 +339,31 @@ class TestSystemHealth:
                     print(f"✓ Query '{query}' found {len(results.documents)} results")
 
             # At least half the queries should return results
-            assert successful_queries >= len(test_queries) / 2, \
-                f"Only {successful_queries}/{len(test_queries)} queries returned results"
+            assert (
+                successful_queries >= len(test_queries) / 2
+            ), f"Only {successful_queries}/{len(test_queries)} queries returned results"
 
-            print(f"✓ Search quality test passed: {successful_queries}/{len(test_queries)} queries successful")
+            print(
+                f"✓ Search quality test passed: {successful_queries}/{len(test_queries)} queries successful"
+            )
 
         except Exception as e:
             pytest.fail(f"Search quality test failed: {e}")
 
     def test_memory_usage(self):
         """Test that the system doesn't use excessive memory"""
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
 
         try:
             # Initialize system components
-            store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
+            store = VectorStore(
+                config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS
+            )
             rag_system = RAGSystem(config)
 
             # Do some operations
@@ -319,7 +374,9 @@ class TestSystemHealth:
             memory_increase = final_memory - initial_memory
 
             # Memory increase should be reasonable (less than 500MB)
-            assert memory_increase < 500, f"Memory usage increased by {memory_increase:.1f}MB - too high"
+            assert (
+                memory_increase < 500
+            ), f"Memory usage increased by {memory_increase:.1f}MB - too high"
 
             print(f"✓ Memory usage test passed: {memory_increase:.1f}MB increase")
 
@@ -332,7 +389,9 @@ class TestSystemHealth:
         import time
 
         try:
-            store = VectorStore(config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS)
+            store = VectorStore(
+                config.CHROMA_PATH, config.EMBEDDING_MODEL, config.MAX_RESULTS
+            )
 
             # Warm up
             store.search("warmup query")

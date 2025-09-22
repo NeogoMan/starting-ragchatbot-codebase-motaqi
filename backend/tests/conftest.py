@@ -1,19 +1,20 @@
-import pytest
-import tempfile
-import shutil
 import os
+import shutil
+import sys
+import tempfile
 from typing import Generator, List
 from unittest.mock import Mock, patch
 
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import pytest
 
-from models import Course, Lesson, CourseChunk
-from vector_store import VectorStore
-from search_tools import CourseSearchTool, CourseOutlineTool, ToolManager
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from ai_generator import AIGenerator
-from rag_system import RAGSystem
 from config import Config
+from models import Course, CourseChunk, Lesson
+from rag_system import RAGSystem
+from search_tools import CourseOutlineTool, CourseSearchTool, ToolManager
+from vector_store import VectorStore
 
 
 @pytest.fixture(scope="session")
@@ -27,7 +28,7 @@ def test_config():
         CHUNK_OVERLAP=100,
         MAX_RESULTS=5,
         MAX_HISTORY=2,
-        CHROMA_PATH="./test_chroma_db"
+        CHROMA_PATH="./test_chroma_db",
     )
 
 
@@ -49,10 +50,22 @@ def sample_course():
         course_link="https://example.com/ml-course",
         instructor="Dr. Smith",
         lessons=[
-            Lesson(lesson_number=1, title="What is Machine Learning?", lesson_link="https://example.com/ml-course/lesson-1"),
-            Lesson(lesson_number=2, title="Supervised Learning", lesson_link="https://example.com/ml-course/lesson-2"),
-            Lesson(lesson_number=3, title="Unsupervised Learning", lesson_link="https://example.com/ml-course/lesson-3"),
-        ]
+            Lesson(
+                lesson_number=1,
+                title="What is Machine Learning?",
+                lesson_link="https://example.com/ml-course/lesson-1",
+            ),
+            Lesson(
+                lesson_number=2,
+                title="Supervised Learning",
+                lesson_link="https://example.com/ml-course/lesson-2",
+            ),
+            Lesson(
+                lesson_number=3,
+                title="Unsupervised Learning",
+                lesson_link="https://example.com/ml-course/lesson-3",
+            ),
+        ],
     )
 
 
@@ -64,19 +77,19 @@ def sample_course_chunks(sample_course):
             content="Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data.",
             course_title=sample_course.title,
             lesson_number=1,
-            chunk_index=0
+            chunk_index=0,
         ),
         CourseChunk(
             content="Supervised learning uses labeled training data to learn a mapping from inputs to outputs.",
             course_title=sample_course.title,
             lesson_number=2,
-            chunk_index=1
+            chunk_index=1,
         ),
         CourseChunk(
             content="Unsupervised learning finds patterns in data without labeled examples.",
             course_title=sample_course.title,
             lesson_number=3,
-            chunk_index=2
+            chunk_index=2,
         ),
     ]
 
@@ -154,7 +167,9 @@ def mock_anthropic_tool_response():
 
     # Mock final response after tool execution
     mock_final_response = Mock()
-    mock_final_response.content = [Mock(text="Based on the search results, machine learning is...")]
+    mock_final_response.content = [
+        Mock(text="Based on the search results, machine learning is...")
+    ]
 
     mock_client.messages.create.side_effect = [mock_response, mock_final_response]
 
@@ -164,7 +179,7 @@ def mock_anthropic_tool_response():
 @pytest.fixture
 def ai_generator_with_mock(mock_anthropic_client):
     """AIGenerator with mocked Anthropic client"""
-    with patch('ai_generator.anthropic.Anthropic') as mock_anthropic:
+    with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
         mock_anthropic.return_value = mock_anthropic_client
         generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
         generator.client = mock_anthropic_client
